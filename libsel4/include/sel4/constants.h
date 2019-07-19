@@ -86,7 +86,7 @@ typedef enum {
 #define seL4_MinSchedContextBits 8
 #ifndef __ASSEMBLER__
 /* the size of a scheduling context, excluding extra refills */
-#define seL4_CoreSchedContextBytes (10 * sizeof(seL4_Word) + (6 * 8))
+#define seL4_CoreSchedContextBytes (10 * sizeof(seL4_Word) + (7 * 8))
 /* the size of a single extra refill */
 #define seL4_RefillSizeBytes (2 * 8)
 
