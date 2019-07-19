@@ -343,6 +343,12 @@ struct sched_context {
     /* period for this sc -- controls rate at which budget is replenished */
     ticks_t scPeriod;
 
+    /* Total budget allocated to the context within its period. If this
+     * is overrun due to large WCET of kernel we use this to delay
+     * re-scheduling the context again until it will have consumed the
+     * excess budget. */
+    ticks_t scBudget;
+
     /* amount of ticks this sc has been scheduled for since seL4_SchedContext_Consumed
      * was last called or a timeout exception fired */
     ticks_t scConsumed;

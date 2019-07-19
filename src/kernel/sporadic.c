@@ -156,6 +156,7 @@ void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t
 #endif
 {
     sc->scPeriod = period;
+    sc->scBudget = budget;
     sc->scRefillHead = 0;
     sc->scRefillTail = 0;
     sc->scRefillMax = max_refills;
@@ -188,6 +189,8 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     sc->scRefillMax = new_max_refills;
     /* update period */
     sc->scPeriod = new_period;
+    /* update budget */
+    sc->scBudget = new_budget;
 
     if (refill_ready(sc)) {
         REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore);
@@ -231,32 +234,26 @@ void refill_budget_check(ticks_t usage, ticks_t capacity)
     REFILL_SANITY_START(sc);
 
     if (capacity == 0) {
-        while (REFILL_HEAD(sc).rAmount <= usage) {
-            /* exhaust and schedule replenishment */
-            usage -= REFILL_HEAD(sc).rAmount;
-            if (refill_single(sc)) {
-                /* update in place */
-                REFILL_HEAD(sc).rTime += sc->scPeriod;
-            } else {
-                refill_t old_head = refill_pop_head(sc);
-                old_head.rTime = old_head.rTime + sc->scPeriod;
-                schedule_used(sc, old_head);
-            }
-        }
+        if (unlikely(usage > sc->scBudget)) {
+            /* budget overrun */
+            ticks_t overrun = usage - sc->scBudget;
 
-        /* budget overrun */
-        if (usage > 0) {
-            /* budget reduced when calculating capacity */
-            /* due to overrun delay next replenishment */
-            REFILL_HEAD(sc).rTime += usage;
-            /* merge front two replenishments if times overlap */
-            if (!refill_single(sc) &&
-                REFILL_HEAD(sc).rTime + REFILL_HEAD(sc).rAmount >=
-                REFILL_INDEX(sc, refill_next(sc, sc->scRefillHead)).rTime) {
-
-                refill_t refill = refill_pop_head(sc);
-                REFILL_HEAD(sc).rAmount += refill.rAmount;
-                REFILL_HEAD(sc).rTime = refill.rTime;
+            /* set the only refill to be now + period + excess used */
+            sc->scRefillTail = sc->scRefillHead;
+            REFILL_HEAD(sc).rAmount = sc->scBudget;
+            REFILL_HEAD(sc).rTime = NODE_STATE(ksCurTime) + sc->scPeriod + overrun;
+        } else {
+            while (REFILL_HEAD(sc).rAmount <= usage) {
+                /* exhaust and schedule replenishment */
+                usage -= REFILL_HEAD(sc).rAmount;
+                if (refill_single(sc)) {
+                    /* update in place */
+                    REFILL_HEAD(sc).rTime += sc->scPeriod;
+                } else {
+                    refill_t old_head = refill_pop_head(sc);
+                    old_head.rTime = old_head.rTime + sc->scPeriod;
+                    schedule_used(sc, old_head);
+                }
             }
         }
     }
