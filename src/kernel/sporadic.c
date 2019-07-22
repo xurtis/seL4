@@ -169,9 +169,22 @@ void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t
     REFILL_SANITY_CHECK(sc, budget);
 }
 
+static inline void schedule_used(sched_context_t *sc, refill_t new)
+{
+    /* schedule the used amount */
+    if (new.rAmount < MIN_BUDGET && !refill_single(sc)) {
+        /* used amount is to small - merge with last and delay */
+        REFILL_TAIL(sc).rAmount += new.rAmount;
+        REFILL_TAIL(sc).rTime = MAX(new.rTime, REFILL_TAIL(sc).rTime);
+    } else if (new.rTime <= REFILL_TAIL(sc).rTime + REFILL_TAIL(sc).rAmount) {
+        REFILL_TAIL(sc).rAmount += new.rAmount;
+    } else {
+        refill_add_tail(sc, new);
+    }
+}
+
 void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, word_t new_max_refills)
 {
-
     /* refill must be initialised in order to be updated - otherwise refill_new should be used */
     assert(sc->scRefillMax > 0);
 
@@ -209,20 +222,6 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     }
 
     REFILL_SANITY_CHECK(sc, new_budget);
-}
-
-static inline void schedule_used(sched_context_t *sc, refill_t new)
-{
-    /* schedule the used amount */
-    if (new.rAmount < MIN_BUDGET && !refill_single(sc)) {
-        /* used amount is to small - merge with last and delay */
-        REFILL_TAIL(sc).rAmount += new.rAmount;
-        REFILL_TAIL(sc).rTime = MAX(new.rTime, REFILL_TAIL(sc).rTime);
-    } else if (new.rTime <= REFILL_TAIL(sc).rTime) {
-        REFILL_TAIL(sc).rAmount += new.rAmount;
-    } else {
-        refill_add_tail(sc, new);
-    }
 }
 
 void refill_budget_check(ticks_t usage, ticks_t capacity)
