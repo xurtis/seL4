@@ -67,13 +67,13 @@ UNUSED static inline void refill_print(sched_context_t *sc)
 #endif /* CONFIG_PRINTING */
 #ifdef CONFIG_DEBUG_BUILD
 /* check a refill queue is ordered correctly */
-static UNUSED bool_t refill_ordered(sched_context_t *sc)
+static UNUSED bool_t refill_ordered_disjoint(sched_context_t *sc)
 {
     word_t current = sc->scRefillHead;
     word_t next = refill_next(sc, sc->scRefillHead);
 
     while (current != sc->scRefillTail) {
-        if (!(REFILL_INDEX(sc, current).rTime <= REFILL_INDEX(sc, next).rTime)) {
+        if (!(REFILL_INDEX(sc, current).rTime + REFILL_INDEX(sc, current).rAmount <= REFILL_INDEX(sc, next).rTime)) {
             refill_print(sc);
             return false;
         }
@@ -84,10 +84,10 @@ static UNUSED bool_t refill_ordered(sched_context_t *sc)
     return true;
 }
 
-#define REFILL_SANITY_START(sc) ticks_t _sum = refill_sum(sc); assert(refill_ordered(sc));
+#define REFILL_SANITY_START(sc) ticks_t _sum = refill_sum(sc); assert(refill_ordered_disjoint(sc));
 #define REFILL_SANITY_CHECK(sc, budget) \
     do { \
-        assert(refill_sum(sc) == budget); assert(refill_ordered(sc)); \
+        assert(refill_sum(sc) == budget); assert(refill_ordered_disjoint(sc)); \
     } while (0)
 
 #define REFILL_SANITY_END(sc) \
@@ -148,7 +148,11 @@ static inline void maybe_add_empty_tail(sched_context_t *sc)
 {
     if (isRoundRobin(sc)) {
         /* add an empty refill - we track the used up time here */
-        refill_t empty_tail = { .rTime = NODE_STATE(ksCurTime)};
+        /* For round robin threads the period is set to 0 as a flag but
+         * the real period is equal to the budget. As all refills need
+         * to be disjoint the empty tail needs to occur after the head
+         * so the budget is used to offset the start of the empty refill. */
+        refill_t empty_tail = { .rTime = NODE_STATE(ksCurTime) + sc->scBudget };
         refill_add_tail(sc, empty_tail);
         assert(refill_size(sc) == MIN_REFILLS);
     }
@@ -213,14 +217,14 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     if (REFILL_HEAD(sc).rAmount >= new_budget) {
         /* if the heads budget exceeds the new budget just trim it */
         REFILL_HEAD(sc).rAmount = new_budget;
-        maybe_add_empty_tail(sc);
     } else {
         /* otherwise schedule the rest for the next period */
         refill_t new = { .rAmount = (new_budget - REFILL_HEAD(sc).rAmount),
                          .rTime = REFILL_HEAD(sc).rTime + new_period
                        };
-        refill_add_tail(sc, new);
+        schedule_used(sc, new);
     }
+    maybe_add_empty_tail(sc);
 
     REFILL_SANITY_CHECK(sc, new_budget);
 }
@@ -308,7 +312,7 @@ void refill_split_check(ticks_t usage)
             REFILL_HEAD(sc).rAmount += remnant;
             schedule_used(sc, new);
         }
-        assert(refill_ordered(sc));
+        assert(refill_ordered_disjoint(sc));
     } else {
         /* leave remnant as reduced replenishment */
         assert(remnant >= MIN_BUDGET);
