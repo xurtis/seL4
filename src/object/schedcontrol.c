@@ -49,15 +49,6 @@ static exception_t invokeSchedControl_Configure(sched_context_t *target, word_t 
         }
     }
 
-    if (budget == period) {
-        /* this is a cool hack: for round robin, we set the
-         * period to 0, which means that the budget will always be ready to be refilled
-         * and avoids some special casing.
-         */
-        period = 0;
-        max_refills = MIN_REFILLS;
-    }
-
     if (SMP_COND_STATEMENT(core == target->scCore &&) target->scRefillMax > 0 && target->scTcb
         && isRunnable(target->scTcb)) {
         /* the scheduling context is active - it can be used, so

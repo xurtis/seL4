@@ -599,9 +599,11 @@ void chargeBudget(ticks_t capacity, ticks_t consumed, bool_t canTimeoutFault, wo
 {
 
     if (isRoundRobin(NODE_STATE_ON_CORE(ksCurSC, core))) {
-        assert(refill_size(NODE_STATE_ON_CORE(ksCurSC, core)) == MIN_REFILLS);
-        REFILL_HEAD(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount += REFILL_TAIL(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount;
-        REFILL_TAIL(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount = 0;
+        /* for round robin threads, we can just update the
+         * single refill in the SC. */
+        NODE_STATE(ksCurSC)->scRefillHead = NODE_STATE(ksCurSC)->scRefillTail;
+        REFILL_HEAD(NODE_STATE(ksCurSC)).rAmount = NODE_STATE(ksCurSC)->scBudget;
+        REFILL_HEAD(NODE_STATE(ksCurSC)).rTime += consumed;
     } else {
         refill_budget_check(consumed, capacity);
     }
