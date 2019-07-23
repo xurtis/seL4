@@ -42,6 +42,19 @@ static inline word_t refill_next(sched_context_t *sc, word_t index)
     return (index == sc->scRefillMax - 1u) ? (0) : index + 1u;
 }
 
+/* return the real period of the scheduling context.
+ *
+ * In the case of a round robin SC the period is recorded as 0 to ensure
+ * that it is always schedulable so the budget tracks its real period.
+ */
+static inline word_t real_period(sched_context_t *sc) {
+    if (sc->scPeriod == 0) {
+        return sc->scBudget;
+    } else {
+        return sc->scPeriod;
+    }
+}
+
 #ifdef CONFIG_PRINTING
 /* for debugging */
 UNUSED static inline void print_index(sched_context_t *sc, word_t index)
@@ -66,7 +79,10 @@ UNUSED static inline void refill_print(sched_context_t *sc)
 }
 #endif /* CONFIG_PRINTING */
 #ifdef CONFIG_DEBUG_BUILD
-/* check a refill queue is ordered correctly */
+/* INVARIANTS */
+
+/* Each refill ends before or at the time the subsequent refill
+ * starts (the refills are in order and disjoint). */
 static UNUSED bool_t refill_ordered_disjoint(sched_context_t *sc)
 {
     word_t current = sc->scRefillHead;
@@ -84,10 +100,61 @@ static UNUSED bool_t refill_ordered_disjoint(sched_context_t *sc)
     return true;
 }
 
-#define REFILL_SANITY_START(sc) ticks_t _sum = refill_sum(sc); assert(refill_ordered_disjoint(sc));
+/* Each refill has at least MIN_BUDGET in its rAmount. */
+static UNUSED bool_t refill_at_least_min_budget(sched_context_t *sc)
+{
+    word_t current = sc->scRefillHead;
+
+    while (true) {
+        if (!(REFILL_INDEX(sc, current).rAmount >= MIN_BUDGET)) {
+            refill_print(sc);
+            return false;
+        }
+        if (current == sc->scRefillTail) {
+            break;
+        }
+        current = refill_next(sc, current);
+    }
+
+    return true;
+}
+
+static UNUSED ticks_t refill_sum(sched_context_t *sc);
+
+/* The refills of a SC sum to exactly its budget. */
+static UNUSED bool_t refill_sum_to_budget(sched_context_t *sc)
+{
+    if (!(refill_sum(sc) == sc->scBudget)) {
+        refill_print(sc);
+        return false;
+    }
+
+    return true;
+}
+
+/* All refills including refill amount occur within the window of a
+ * single period. */
+static UNUSED bool_t refill_all_within_period(sched_context_t *sc)
+{
+    if (!(REFILL_TAIL(sc).rTime + REFILL_TAIL(sc).rAmount - REFILL_HEAD(sc).rTime <= real_period(sc))) {
+        refill_print(sc);
+        return false;
+    }
+    return true;
+}
+
+static UNUSED void sched_invariants(sched_context_t *sc)
+{
+    assert(refill_ordered_disjoint(sc));
+    assert(refill_at_least_min_budget(sc));
+    assert(refill_all_within_period(sc));
+    assert(refill_sum_to_budget(sc));
+}
+
+#define REFILL_SANITY_START(sc) ticks_t _sum = refill_sum(sc); sched_invariants(sc);
 #define REFILL_SANITY_CHECK(sc, budget) \
     do { \
-        assert(refill_sum(sc) == budget); assert(refill_ordered_disjoint(sc)); \
+        assert(refill_sum(sc) == budget); sched_invariants(sc); \
     } while (0)
 
 #define REFILL_SANITY_END(sc) \
@@ -234,7 +301,7 @@ void refill_budget_check(ticks_t usage, ticks_t capacity)
     sched_context_t *sc = NODE_STATE(ksCurSC);
     /* this function should only be called when the sc is out of budget */
     assert(capacity < MIN_BUDGET || refill_full(sc));
-    assert(sc->scPeriod > 0);
+    assert(!isRoundRobin(sc));
     REFILL_SANITY_START(sc);
 
     if (capacity == 0) {
@@ -284,11 +351,12 @@ void refill_split_check(ticks_t usage)
     sched_context_t *sc = NODE_STATE(ksCurSC);
     /* invalid to call this on a NULL sc */
     assert(sc != NULL);
+    assert(refill_ready(sc));
     /* something is seriously wrong if this is called and no
      * time has been used */
     assert(usage > 0);
-    assert(usage <= REFILL_HEAD(sc).rAmount);
-    assert(sc->scPeriod > 0);
+    assert(usage < REFILL_HEAD(sc).rAmount);
+    assert(!isRoundRobin(sc));
 
     REFILL_SANITY_START(sc);
 
