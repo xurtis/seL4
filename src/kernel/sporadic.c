@@ -37,19 +37,6 @@ static inline word_t refill_next(sched_context_t *sc, word_t index)
     return (index == sc->scRefillMax - 1u) ? (0) : index + 1u;
 }
 
-/* return the real period of the scheduling context.
- *
- * In the case of a round robin SC the period is recorded as 0 to ensure
- * that it is always schedulable so the budget tracks its real period.
- */
-static inline word_t real_period(sched_context_t *sc) {
-    if (sc->scPeriod == 0) {
-        return sc->scBudget;
-    } else {
-        return sc->scPeriod;
-    }
-}
-
 #ifdef CONFIG_PRINTING
 /* for debugging */
 UNUSED static inline void print_index(sched_context_t *sc, word_t index)
@@ -131,7 +118,7 @@ static UNUSED bool_t refill_sum_to_budget(sched_context_t *sc)
  * single period. */
 static UNUSED bool_t refill_all_within_period(sched_context_t *sc)
 {
-    if (!(REFILL_TAIL(sc).rTime + REFILL_TAIL(sc).rAmount - REFILL_HEAD(sc).rTime <= real_period(sc))) {
+    if (!(REFILL_TAIL(sc).rTime + REFILL_TAIL(sc).rAmount - REFILL_HEAD(sc).rTime <= sc->scPeriod)) {
         refill_print(sc);
         return false;
     }
@@ -206,20 +193,6 @@ static inline void refill_add_tail(sched_context_t *sc, refill_t refill)
     assert(new_tail < sc->scRefillMax);
 }
 
-static inline void maybe_add_empty_tail(sched_context_t *sc)
-{
-    if (isRoundRobin(sc)) {
-        /* add an empty refill - we track the used up time here */
-        /* For round robin threads the period is set to 0 as a flag but
-         * the real period is equal to the budget. As all refills need
-         * to be disjoint the empty tail needs to occur after the head
-         * so the budget is used to offset the start of the empty refill. */
-        refill_t empty_tail = { .rTime = NODE_STATE(ksCurTime) + sc->scBudget };
-        refill_add_tail(sc, empty_tail);
-        assert(refill_size(sc) == MIN_REFILLS);
-    }
-}
-
 #ifdef ENABLE_SMP_SUPPORT
 void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t period, word_t core)
 #else
@@ -236,7 +209,6 @@ void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t
     REFILL_HEAD(sc).rAmount = budget;
     /* budget can be used from now */
     REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, core);
-    maybe_add_empty_tail(sc);
     REFILL_SANITY_CHECK(sc, budget);
 }
 
@@ -293,7 +265,6 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
                        };
         schedule_used(sc, new);
     }
-    maybe_add_empty_tail(sc);
 
     REFILL_SANITY_CHECK(sc, new_budget);
 }
