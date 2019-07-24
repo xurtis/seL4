@@ -134,7 +134,6 @@ static inline void commitTime(void)
             if (isRoundRobin(NODE_STATE(ksCurSC))) {
                 /* for round robin threads, we can just update the
                  * single refill in the SC. */
-                NODE_STATE(ksCurSC)->scRefillHead = NODE_STATE(ksCurSC)->scRefillTail;
                 REFILL_HEAD(NODE_STATE(ksCurSC)).rAmount = NODE_STATE(ksCurSC)->scBudget;
                 REFILL_HEAD(NODE_STATE(ksCurSC)).rTime += NODE_STATE(ksConsumed);
             } else {
