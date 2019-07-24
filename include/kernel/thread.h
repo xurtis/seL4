@@ -113,7 +113,7 @@ static inline void commitTime(void)
                 REFILL_HEAD(NODE_STATE(ksCurSC)).rAmount = NODE_STATE(ksCurSC)->scBudget;
                 REFILL_HEAD(NODE_STATE(ksCurSC)).rTime += NODE_STATE(ksConsumed);
             } else {
-                refill_budget_check(NODE_STATE(ksConsumed), 0);
+                refill_budget_check(NODE_STATE(ksConsumed));
             }
             assert(refill_sufficient(NODE_STATE(ksCurSC), 0));
             assert(refill_ready(NODE_STATE(ksCurSC)));
@@ -192,7 +192,7 @@ static inline void updateRestartPC(tcb_t *tcb)
 void endTimeslice(bool_t can_timeout_fault);
 
 /* called when a thread has used up its head refill */
-void chargeBudget(ticks_t capacity, ticks_t consumed, bool_t canTimeoutFault, word_t core, bool_t isCurCPU);
+void chargeBudget(ticks_t consumed, bool_t canTimeoutFault, word_t core, bool_t isCurCPU);
 
 /* Update the kernels timestamp and stores in ksCurTime.
  * The difference between the previous kernel timestamp and the one just read
@@ -235,7 +235,7 @@ static inline bool_t checkBudget(void)
         return true;
     }
 
-    chargeBudget(capacity, NODE_STATE(ksConsumed), true, CURRENT_CPU_INDEX(), true);
+    chargeBudget(NODE_STATE(ksConsumed), true, CURRENT_CPU_INDEX(), true);
     return false;
 }
 
