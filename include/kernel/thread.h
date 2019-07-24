@@ -113,7 +113,7 @@ static inline void commitTime(void)
                 REFILL_HEAD(NODE_STATE(ksCurSC)).rAmount = NODE_STATE(ksCurSC)->scBudget;
                 REFILL_HEAD(NODE_STATE(ksCurSC)).rTime += NODE_STATE(ksConsumed);
             } else {
-                refill_split_check(NODE_STATE(ksConsumed));
+                refill_budget_check(NODE_STATE(ksConsumed), 0);
             }
             assert(refill_sufficient(NODE_STATE(ksCurSC), 0));
             assert(refill_ready(NODE_STATE(ksCurSC)));
