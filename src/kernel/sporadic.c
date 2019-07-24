@@ -280,11 +280,9 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     REFILL_SANITY_CHECK(sc, new_budget);
 }
 
-void refill_budget_check(ticks_t usage, ticks_t capacity)
+void refill_budget_check(ticks_t usage)
 {
     sched_context_t *sc = NODE_STATE(ksCurSC);
-    /* this function should only be called when the sc is out of budget */
-    assert(capacity < MIN_BUDGET || refill_full(sc));
     assert(!isRoundRobin(sc));
     REFILL_SANITY_START(sc);
 
@@ -300,33 +298,31 @@ void refill_budget_check(ticks_t usage, ticks_t capacity)
         .rTime = last_entry + sc->scPeriod,
     };
 
-    if (capacity == 0) {
-        while (REFILL_HEAD(sc).rAmount <= usage && refill_ready(sc)) {
-            refill_t old_head = refill_pop_head(sc);
-            usage -= old_head.rAmount;
-        }
-    }
+    /* After refill_unblock_check, using more than the head refill
+     * indicates a bandwidth overrun. */
 
-    if (unlikely(usage > 0 && !refill_ready(sc))) {
+    if (unlikely(!refill_ready(sc) || REFILL_HEAD(sc).rAmount < usage)) {
         /* Budget overrun so empty the refill list entirely and schedule
          * a single refill of the full budget far enough in the future
          * to restore the bandwidth limitation. */
         sc->scRefillCount = 0;
         used.rTime += usage;
         used.rAmount = sc->scBudget;
-    } else if (usage > 0) {
+    } else if (usage == REFILL_HEAD(sc).rAmount) {
+        refill_pop_head(sc);
+    } else {
         ticks_t remnant = refill_split_check(usage);
         used.rTime -= remnant;
         used.rAmount += remnant;
     }
 
     /* Schedule all of the used time as a single refill. */
-    schedule_used(used);
+    schedule_used(sc, used);
 
     REFILL_SANITY_END(sc);
 }
 
-void refill_split_check(ticks_t usage)
+ticks_t refill_split_check(ticks_t usage)
 {
     sched_context_t *sc = NODE_STATE(ksCurSC);
     /* invalid to call this on a NULL sc */
@@ -338,20 +334,16 @@ void refill_split_check(ticks_t usage)
     assert(usage < REFILL_HEAD(sc).rAmount);
     assert(!isRoundRobin(sc));
 
-    REFILL_SANITY_START(sc);
-
     /* first deal with the remaining budget of the current replenishment */
     ticks_t remnant = REFILL_HEAD(sc).rAmount - usage;
 
     if (remnant < MIN_BUDGET) {
         refill_pop_head(sc);
     } else {
-        REFILL_HEAD.rAmount = remnant;
-        REFILL_HEAD.rTime += usage;
+        REFILL_HEAD(sc).rAmount = remnant;
+        REFILL_HEAD(sc).rTime += usage;
         remnant = 0;
     }
-
-    REFILL_SANITY_END(sc);
 
     return remnant;
 }

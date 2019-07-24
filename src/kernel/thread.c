@@ -579,7 +579,7 @@ void setNextInterrupt(void)
     setDeadline(next_interrupt - getTimerPrecision());
 }
 
-void chargeBudget(ticks_t capacity, ticks_t consumed, bool_t canTimeoutFault, word_t core, bool_t isCurCPU)
+void chargeBudget(ticks_t consumed, bool_t canTimeoutFault, word_t core, bool_t isCurCPU)
 {
 
     if (isRoundRobin(NODE_STATE_ON_CORE(ksCurSC, core))) {
@@ -588,7 +588,7 @@ void chargeBudget(ticks_t capacity, ticks_t consumed, bool_t canTimeoutFault, wo
         REFILL_HEAD(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount = NODE_STATE(ksCurSC)->scBudget;
         REFILL_HEAD(NODE_STATE_ON_CORE(ksCurSC, core)).rTime += consumed;
     } else {
-        refill_budget_check(consumed, capacity);
+        refill_budget_check(consumed);
     }
 
     assert(REFILL_HEAD(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount >= MIN_BUDGET);
