@@ -27,13 +27,6 @@
  * The queue has a minimum size of 1, so it is possible that h == t.
  */
 
-/*
- * Remove `used` from the head refill. If the resulting refill ends up
- * smaller than the MIN_REFILL, remove the head refill and return the
- * amount left over (or 0 otherwise).
- */
-ticks_t refill_split_check(ticks_t used);
-
 /* return the index of the next item in the refill queue */
 static inline word_t refill_next(sched_context_t *sc, word_t index)
 {
@@ -308,44 +301,34 @@ void refill_budget_check(ticks_t usage)
         sc->scRefillCount = 0;
         used.rTime += usage;
         used.rAmount = sc->scBudget;
-    } else if (usage == REFILL_HEAD(sc).rAmount) {
+    } else if (unlikely(usage == REFILL_HEAD(sc).rAmount)) {
         refill_pop_head(sc);
     } else {
-        ticks_t remnant = refill_split_check(usage);
-        used.rTime -= remnant;
-        used.rAmount += remnant;
+        ticks_t remnant = REFILL_HEAD(sc).rAmount - usage;
+
+        if (remnant >= MIN_BUDGET) {
+            /* Leave the head refill with all that was leftover */
+            REFILL_HEAD(sc).rAmount = remnant;
+            REFILL_HEAD(sc).rTime += usage;
+        } else {
+            /* Merge the remaining time to the start of the following
+             * refill */
+            refill_pop_head(sc);
+            if (refill_empty(sc)) {
+                /* Used will become the new head */
+                used.rTime -= remnant;
+                used.rAmount += remnant;
+            } else {
+                REFILL_HEAD(sc).rTime -= remnant;
+                REFILL_HEAD(sc).rAmount += remnant;
+            }
+        }
     }
 
     /* Schedule all of the used time as a single refill. */
     schedule_used(sc, used);
 
     REFILL_SANITY_END(sc);
-}
-
-ticks_t refill_split_check(ticks_t usage)
-{
-    sched_context_t *sc = NODE_STATE(ksCurSC);
-    /* invalid to call this on a NULL sc */
-    assert(sc != NULL);
-    assert(refill_ready(sc));
-    /* something is seriously wrong if this is called and no
-     * time has been used */
-    assert(usage > 0);
-    assert(usage < REFILL_HEAD(sc).rAmount);
-    assert(!isRoundRobin(sc));
-
-    /* first deal with the remaining budget of the current replenishment */
-    ticks_t remnant = REFILL_HEAD(sc).rAmount - usage;
-
-    if (remnant < MIN_BUDGET) {
-        refill_pop_head(sc);
-    } else {
-        REFILL_HEAD(sc).rAmount = remnant;
-        REFILL_HEAD(sc).rTime += usage;
-        remnant = 0;
-    }
-
-    return remnant;
 }
 
 void refill_unblock_check(sched_context_t *sc)
