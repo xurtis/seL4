@@ -341,21 +341,24 @@ void refill_unblock_check(sched_context_t *sc)
     /* advance earliest activation time to now */
     REFILL_SANITY_START(sc);
     if (refill_ready(sc)) {
-        REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore);
         NODE_STATE(ksReprogram) = true;
+
+        REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + getKernelWcetTicks();
 
         /* merge available replenishments */
         while (refill_size(sc) > 1) {
             ticks_t amount = REFILL_HEAD(sc).rAmount;
-            if (REFILL_INDEX(sc, refill_next(sc, sc->scRefillHead)).rTime <= NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + amount) {
+            ticks_t tail = REFILL_HEAD(sc).rTime + amount;
+            if (REFILL_INDEX(sc, refill_next(sc, sc->scRefillHead)).rTime <= tail) {
                 refill_pop_head(sc);
                 REFILL_HEAD(sc).rAmount += amount;
-                REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore);
+                REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + getKernelWcetTicks();
             } else {
                 break;
             }
         }
 
+        assert(refill_ready(sc));
         assert(refill_sufficient(sc, 0));
     }
     REFILL_SANITY_END(sc);
