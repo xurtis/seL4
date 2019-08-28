@@ -125,6 +125,7 @@ static UNUSED bool_t refill_all_within_period(sched_context_t *sc)
 static UNUSED void sched_invariants(sched_context_t *sc)
 {
     assert(!refill_empty(sc));
+    assert(sc->scBudget >= MIN_SC_BUDGET);
     assert(refill_ordered_disjoint(sc));
     assert(refill_at_least_min_budget(sc));
     assert(refill_all_within_period(sc));
@@ -220,7 +221,14 @@ static inline void schedule_used(sched_context_t *sc, refill_t new)
         assert(new.rTime >= REFILL_TAIL(sc).rTime + REFILL_TAIL(sc).rAmount);
 
         /* schedule the used amount */
-        if (new.rAmount < MIN_BUDGET || refill_full(sc)) {
+        if (new.rAmount < MIN_BUDGET && !refill_full(sc) && REFILL_TAIL(sc).rAmount + new.rAmount >= 2 * MIN_BUDGET) {
+            /* Split tail into two parts of at least MIN_BUDGET */
+            ticks_t remainder = MIN_BUDGET - new.rAmount;
+            new.rAmount += remainder;
+            new.rTime -= remainder;
+            REFILL_TAIL(sc).rAmount -= remainder;
+            refill_add_tail(sc, new);
+        } else if (new.rAmount < MIN_BUDGET || refill_full(sc)) {
             /* Merge with existing tail */
             REFILL_TAIL(sc).rTime = new.rTime - REFILL_TAIL(sc).rAmount;
             REFILL_TAIL(sc).rAmount += new.rAmount;
