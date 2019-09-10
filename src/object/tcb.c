@@ -1804,7 +1804,6 @@ exception_t invokeTCB_ThreadControlSched(tcb_t *target, cte_t *slot,
         if (e != EXCEPTION_NONE) {
             return e;
         }
-
     }
 #endif
 
