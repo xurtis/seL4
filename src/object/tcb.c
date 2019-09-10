@@ -1798,19 +1798,9 @@ exception_t invokeTCB_ThreadControlSched(tcb_t *target, cte_t *slot,
 #endif
 {
 #ifdef CONFIG_KERNEL_MCS
-    exception_t e;
-    cap_t tCap = cap_thread_cap_new((word_t)target);
-
-    if (updateFlags & thread_control_update_sc) {
-        if (sc != NULL && sc != target->tcbSchedContext) {
-            schedContext_bindTCB(sc, target);
-        } else if (sc == NULL && target->tcbSchedContext != NULL) {
-            schedContext_unbindTCB(target->tcbSchedContext, target);
-        }
-    }
-
     if (updateFlags & thread_control_update_fault) {
-        e = installTCBCap(target, tCap, slot, tcbFaultHandler, fh_newCap, fh_srcSlot);
+        cap_t tCap = cap_thread_cap_new((word_t)target);
+        exception_t e = installTCBCap(target, tCap, slot, tcbFaultHandler, fh_newCap, fh_srcSlot);
         if (e != EXCEPTION_NONE) {
             return e;
         }
@@ -1825,6 +1815,16 @@ exception_t invokeTCB_ThreadControlSched(tcb_t *target, cte_t *slot,
     if (updateFlags & thread_control_update_priority) {
         setPriority(target, priority);
     }
+
+#ifdef CONFIG_KERNEL_MCS
+    if (updateFlags & thread_control_update_sc) {
+        if (sc != NULL && sc != target->tcbSchedContext) {
+            schedContext_bindTCB(sc, target);
+        } else if (sc == NULL && target->tcbSchedContext != NULL) {
+            schedContext_unbindTCB(target->tcbSchedContext, target);
+        }
+    }
+#endif
 
     return EXCEPTION_NONE;
 }
