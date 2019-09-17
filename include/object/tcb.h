@@ -157,15 +157,21 @@ exception_t decodeUnbindNotification(cap_t cap);
 exception_t decodeSetTimeoutEndpoint(cap_t cap, cte_t *slot, extra_caps_t excaps);
 #endif
 
-enum thread_control_flag {
-    thread_control_update_priority = 0x1,
-    thread_control_update_ipc_buffer = 0x2,
-    thread_control_update_space = 0x4,
-    thread_control_update_mcp = 0x8,
+enum thread_control_caps_flag {
+    thread_control_caps_update_ipc_buffer = 0x1,
+    thread_control_caps_update_space = 0x2,
 #ifdef CONFIG_KERNEL_MCS
-    thread_control_update_sc = 0x10,
-    thread_control_update_fault = 0x20,
-    thread_control_update_timeout = 0x40,
+    thread_control_caps_update_fault = 0x4,
+    thread_control_caps_update_timeout = 0x8,
+#endif
+};
+
+enum thread_control_sched_flag {
+    thread_control_sched_update_priority = 0x1,
+    thread_control_sched_update_mcp = 0x2,
+#ifdef CONFIG_KERNEL_MCS
+    thread_control_sched_update_sc = 0x4,
+    thread_control_sched_update_fault = 0x8,
 #endif
 };
 
