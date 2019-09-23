@@ -50,6 +50,7 @@ UNUSED static inline void print_index(sched_context_t *sc, word_t index)
 UNUSED static inline void refill_print(sched_context_t *sc)
 {
     printf("Head %lu length %lu\n", sc->scRefillHead, sc->scRefillCount);
+    printf("Budget %lu Period %lu\n", (long)sc->scBudget, (long)sc->scPeriod);
 
     word_t current = sc->scRefillHead;
     word_t seen = 0;
