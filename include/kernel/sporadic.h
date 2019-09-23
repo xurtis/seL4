@@ -187,6 +187,12 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
  */
 void refill_budget_check(ticks_t used);
 
+/* Charge `usage` to the current scheduling context (round-robin).
+ *
+ * @param usage the amount of time to charge.
+ */
+void refill_budget_check_round_robin(ticks_t usage);
+
 /*
  * This is called when a thread is eligible to start running: it
  * iterates through the refills queue and merges any

@@ -131,6 +131,11 @@ static UNUSED void sched_invariants(sched_context_t *sc)
     assert(refill_at_least_min_budget(sc));
     assert(refill_all_within_period(sc));
     assert(refill_sum_to_budget(sc));
+    if (isRoundRobin(sc)) {
+        assert(sc->scRefillCount == 2 || (sc->scRefillCount == 1 && REFILL_HEAD(sc).rAmount == sc->scBudget));
+        assert(refill_ready(sc));
+        assert(refill_sufficient(sc, 0));
+    }
 }
 
 #define REFILL_SANITY_START(sc) ticks_t _sum = refill_sum(sc); sched_invariants(sc);
@@ -282,6 +287,46 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     REFILL_SANITY_CHECK(sc, new_budget);
 }
 
+void refill_budget_check_round_robin(ticks_t usage)
+{
+    sched_context_t *sc = NODE_STATE(ksCurSC);
+    assert(isRoundRobin(sc));
+    REFILL_SANITY_START(sc);
+
+    if (usage < MIN_BUDGET && sc->scRefillCount == 1) {
+        /* If a new refill is created it will be at least MIN_BUDGET. */
+        usage = MIN_BUDGET;
+    }
+
+    if (REFILL_HEAD(sc).rAmount >= usage + MIN_BUDGET) {
+        /* The amount left in the head must be at least MIN_BUDGET. */
+        REFILL_HEAD(sc).rTime = NODE_STATE(ksCurTime);
+        REFILL_HEAD(sc).rAmount -= usage;
+        /* Consume only a portion of the head refill */
+        if (sc->scRefillCount == 1) {
+            refill_t new = {
+                .rTime = REFILL_HEAD(sc).rTime + REFILL_HEAD(sc).rAmount,
+                .rAmount = usage,
+            };
+            refill_add_tail(sc, new);
+            assert(refill_ordered_disjoint(sc));
+        } else {
+            assert(sc->scRefillCount == 2);
+            REFILL_TAIL(sc).rTime = REFILL_HEAD(sc).rTime + REFILL_HEAD(sc).rAmount;
+            REFILL_TAIL(sc).rAmount += usage;
+        }
+    } else {
+        /* Reset to a single refill */
+        sc->scRefillCount = 1;
+        REFILL_HEAD(sc).rTime = NODE_STATE(ksCurTime);
+        REFILL_HEAD(sc).rAmount = sc->scBudget;
+    }
+
+    assert(REFILL_HEAD(sc).rTime == NODE_STATE(ksCurTime));
+    REFILL_SANITY_END(sc);
+    return;
+}
+
 void refill_budget_check(ticks_t usage)
 {
     sched_context_t *sc = NODE_STATE(ksCurSC);
@@ -343,7 +388,11 @@ void refill_budget_check(ticks_t usage)
 void refill_unblock_check(sched_context_t *sc)
 {
     if (isRoundRobin(sc)) {
-        /* nothing to do */
+        REFILL_HEAD(sc).rTime = NODE_STATE(ksCurTime) + getKernelWcetTicks();
+        if (sc->scRefillCount > 1) {
+            REFILL_TAIL(sc).rTime = REFILL_HEAD(sc).rTime + REFILL_HEAD(sc).rAmount;
+        }
+        REFILL_SANITY_CHECK(sc, sc->scBudget);
         return;
     }
 

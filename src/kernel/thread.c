@@ -583,10 +583,7 @@ void chargeBudget(ticks_t consumed, bool_t canTimeoutFault, word_t core, bool_t 
 {
 
     if (isRoundRobin(NODE_STATE_ON_CORE(ksCurSC, core))) {
-        /* for round robin threads, we can just update the
-         * single refill in the SC. */
-        REFILL_HEAD(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount = NODE_STATE(ksCurSC)->scBudget;
-        REFILL_HEAD(NODE_STATE_ON_CORE(ksCurSC, core)).rTime += consumed;
+        refill_budget_check_round_robin(consumed);
     } else {
         refill_budget_check(consumed);
     }
