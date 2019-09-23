@@ -108,10 +108,7 @@ static inline void commitTime(void)
             assert(refill_ready(NODE_STATE(ksCurSC)));
 
             if (isRoundRobin(NODE_STATE(ksCurSC))) {
-                /* for round robin threads, we can just update the
-                 * single refill in the SC. */
-                REFILL_HEAD(NODE_STATE(ksCurSC)).rAmount = NODE_STATE(ksCurSC)->scBudget;
-                REFILL_HEAD(NODE_STATE(ksCurSC)).rTime += NODE_STATE(ksConsumed);
+                refill_budget_check_round_robin(NODE_STATE(ksConsumed));
             } else {
                 refill_budget_check(NODE_STATE(ksConsumed));
             }
