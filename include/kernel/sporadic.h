@@ -168,6 +168,15 @@ static inline bool_t refill_ready(sched_context_t *sc)
     return REFILL_HEAD(sc).rTime <= (NODE_STATE(ksCurTime) + getKernelWcetTicks());
 }
 
+/*
+ * Return true if an SC has been successfully configured with parameters
+ * that allow for a thread to run.
+ */
+static inline bool_t sc_active(sched_context_t *sc)
+{
+    return sc->scRefillMax > 0;
+}
+
 /* Create a new refill in a non-active sc */
 void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t period);
 
