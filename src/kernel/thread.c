@@ -30,7 +30,7 @@ transferCaps(seL4_MessageInfo_t info, extra_caps_t caps,
              endpoint_t *endpoint, tcb_t *receiver,
              word_t *receiveBuffer);
 
-static inline bool_t PURE isBlocked(const tcb_t *thread)
+static inline bool_t PURE isStopped(const tcb_t *thread)
 {
     switch (thread_state_get_tsType(thread->tcbState)) {
     case ThreadState_Inactive:
@@ -106,7 +106,7 @@ void suspend(tcb_t *target)
 
 void restart(tcb_t *target)
 {
-    if (isBlocked(target)) {
+    if (isStopped(target)) {
         cancelIPC(target);
 #ifdef CONFIG_KERNEL_MCS
         setThreadState(target, ThreadState_Restart);
