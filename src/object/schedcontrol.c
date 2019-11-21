@@ -64,7 +64,8 @@ static exception_t invokeSchedControl_Configure(sched_context_t *target, word_t 
     }
 #endif /* ENABLE_SMP_SUPPORT */
 
-    if (target->scTcb && target->scRefillMax > 0) {
+    assert(target->scRefillMax > 0);
+    if (target->scTcb) {
         schedContext_resume(target);
         if (target->scTcb == NODE_STATE(ksCurThread)) {
             rescheduleRequired();
