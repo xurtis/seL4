@@ -99,6 +99,21 @@ static inline bool_t PURE isBlocked(const tcb_t *thread)
     }
 }
 
+static inline bool_t PURE isStopped(const tcb_t *thread)
+{
+    switch (thread_state_get_tsType(thread->tcbState)) {
+    case ThreadState_Inactive:
+    case ThreadState_BlockedOnReceive:
+    case ThreadState_BlockedOnSend:
+    case ThreadState_BlockedOnNotification:
+    case ThreadState_BlockedOnReply:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 #ifdef CONFIG_KERNEL_MCS
 static inline bool_t PURE isRoundRobin(sched_context_t *sc)
 {
