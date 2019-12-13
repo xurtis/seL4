@@ -194,7 +194,7 @@ static inline bool_t sc_released(sched_context_t *sc)
 }
 
 /* Create a new refill in a non-active sc */
-void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t period);
+void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t period, word_t core);
 
 /* Update refills in an active sc without violating bandwidth constraints */
 void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, word_t new_max_refills);

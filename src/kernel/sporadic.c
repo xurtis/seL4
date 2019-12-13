@@ -202,7 +202,7 @@ static inline void refill_add_tail(sched_context_t *sc, refill_t refill)
     REFILL_TAIL(sc) = refill;
 }
 
-void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t period)
+void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t period, word_t core)
 {
     sc->scPeriod = period;
     sc->scBudget = budget;
@@ -213,7 +213,7 @@ void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t
     /* full budget available */
     REFILL_HEAD(sc).rAmount = budget;
     /* budget can be used from now */
-    REFILL_HEAD(sc).rTime = NODE_STATE(ksCurTime);
+    REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, core);
     REFILL_SANITY_CHECK(sc, budget);
 }
 
