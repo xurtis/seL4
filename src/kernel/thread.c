@@ -463,11 +463,10 @@ void setDomain(tcb_t *tptr, dom_t dom)
 {
     tcbSchedDequeue(tptr);
     tptr->tcbDomain = dom;
-    if (isSchedulable(tptr)) {
-        SCHED_ENQUEUE(tptr);
-    }
     if (tptr == NODE_STATE(ksCurThread)) {
         rescheduleRequired();
+    } else if (isSchedulable(tptr)) {
+        SCHED_ENQUEUE(tptr);
     }
 }
 
