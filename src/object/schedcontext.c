@@ -307,6 +307,15 @@ void schedContext_unbindTCB(sched_context_t *sc, tcb_t *tcb)
     tcbSchedDequeue(sc->scTcb);
     tcbReleaseRemove(sc->scTcb);
 
+    thread_state_t state = sc->scTcb->tcbState;
+    if (thread_state_get_tsType(state) == ThreadState_BlockedOnSend) {
+        /* Remove thread without SC from donating endpoint */
+        endpoint_t *epptr = EP_PTR(thread_state_get_blockingObject(state));
+        if (endpoint_ptr_get_isDonating(epptr)) {
+            cancelIPC(sc->scTcb);
+        }
+    }
+
     sc->scTcb->tcbSchedContext = NULL;
     sc->scTcb = NULL;
 }
