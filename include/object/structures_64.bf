@@ -208,7 +208,16 @@ block sched_control_cap {
 
 -- Endpoint: size = 16 bytes
 block endpoint {
-    field epQueue_head 64
+#if BF_CANONICAL_RANGE == 48
+    padding 16
+    field_high epQueue_head 47
+#elif BF_CANONICAL_RANGE == 39
+    padding 25
+    field_high epQueue_head 38
+#else
+#error "Unspecified canonical address range"
+#endif
+    field isDonating 1
 
 #if BF_CANONICAL_RANGE == 48
     padding 16

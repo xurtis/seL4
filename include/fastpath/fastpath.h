@@ -92,7 +92,13 @@ static inline void endpoint_ptr_mset_epQueue_tail_state(endpoint_t *ep_ptr, word
 
 static inline void endpoint_ptr_set_epQueue_head_np(endpoint_t *ep_ptr, word_t epQueue_head)
 {
+#ifdef CONFIG_KERNEL_MCS
+    // Fastpath only used on donating endpoints
+    bool_t isDonating = ep_ptr->words[1] & true;
+    ep_ptr->words[1] = epQueue_head | isDonating;
+#else
     ep_ptr->words[1] = epQueue_head;
+#endif
 }
 
 #ifdef CONFIG_KERNEL_MCS

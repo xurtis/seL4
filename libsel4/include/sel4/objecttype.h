@@ -17,6 +17,9 @@ typedef enum api_object {
     seL4_UntypedObject,
     seL4_TCBObject,
     seL4_EndpointObject,
+#ifdef CONFIG_KERNEL_MCS
+    seL4_DonatingEndpointObject,
+#endif
     seL4_NotificationObject,
     seL4_CapTableObject,
 #ifdef CONFIG_KERNEL_MCS

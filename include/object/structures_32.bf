@@ -153,7 +153,8 @@ block endpoint {
     padding 64
 
     field_high epQueue_head 28
-    padding 4
+    padding 3
+    field isDonating 1
 
     field_high epQueue_tail 28
     padding 2

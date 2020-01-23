@@ -43,6 +43,9 @@ word_t getObjectSize(word_t t, word_t userObjSize)
         case seL4_TCBObject:
             return seL4_TCBBits;
         case seL4_EndpointObject:
+#ifdef CONFIG_KERNEL_MCS
+        case seL4_DonatingEndpointObject:
+#endif
             return seL4_EndpointBits;
         case seL4_NotificationObject:
             return seL4_NotificationBits;
@@ -548,6 +551,15 @@ cap_t createObject(object_t t, void *regionBase, word_t userSize, bool_t deviceM
           (Ptr (ptr_val \<acute>regionBase) :: endpoint_C ptr))" */
         return cap_endpoint_cap_new(0, true, true, true, true,
                                     EP_REF(regionBase));
+
+#ifdef CONFIG_KERNEL_MCS
+    case seL4_DonatingEndpointObject:
+        endpoint_ptr_set_isDonating(EP_PTR(regionBase), 1);
+        /** AUXUPD: "(True, ptr_retyp
+          (Ptr (ptr_val \<acute>regionBase) :: endpoint_C ptr))" */
+        return cap_endpoint_cap_new(0, true, true, true, true,
+                                    EP_REF(regionBase));
+#endif
 
     case seL4_NotificationObject:
         /** AUXUPD: "(True, ptr_retyp
