@@ -32,6 +32,22 @@ void sendIPC(bool_t blocking, bool_t do_call, word_t badge,
              bool_t canGrant, bool_t canGrantReply, tcb_t *thread, endpoint_t *epptr)
 #endif
 {
+#ifdef CONFIG_KERNEL_MCS
+    if (endpoint_ptr_get_isDonating(epptr) && !canDonate) {
+        /* Don't perform non-donating IPC on endpoints requiring
+         * donation */
+
+        if (blocking) {
+            /* Suspend caller as though IPC never gets received */
+            setThreadState(thread, ThreadState_Inactive);
+        }
+        return;
+    }
+
+    /* epptr->isDonating implies canDonate */
+    assert(!endpoint_ptr_get_isDonating(epptr) || canDonate);
+#endif
+
     switch (endpoint_ptr_get_state(epptr)) {
     case EPState_Idle:
     case EPState_Send:
@@ -93,11 +109,11 @@ void sendIPC(bool_t blocking, bool_t do_call, word_t badge,
         if (do_call ||
             seL4_Fault_ptr_get_seL4_FaultType(&thread->tcbFault) != seL4_Fault_NullFault) {
             if (reply != NULL && (canGrant || canGrantReply)) {
-                reply_push(thread, dest, reply, canDonate);
+                reply_push(thread, dest, reply, endpoint_ptr_get_isDonating(epptr));
             } else {
                 setThreadState(thread, ThreadState_Inactive);
             }
-        } else if (canDonate && dest->tcbSchedContext == NULL) {
+        } else if (endpoint_ptr_get_isDonating(epptr) && dest->tcbSchedContext == NULL) {
             schedContext_donate(thread->tcbSchedContext, dest);
         }
 
