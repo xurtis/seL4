@@ -385,6 +385,15 @@ void refill_budget_check(ticks_t usage)
     REFILL_SANITY_END(sc);
 }
 
+
+static bool_t refill_unblock_check_mergable(sched_context_t *sc)
+{
+    ticks_t amount = REFILL_HEAD(sc).rAmount;
+    ticks_t tail = REFILL_HEAD(sc).rTime + amount;
+    bool_t enough_time = REFILL_INDEX(sc, refill_next(sc, sc->scRefillHead)).rTime <= tail;
+    return refill_size(sc) > 1 && enough_time;
+}
+
 void refill_unblock_check(sched_context_t *sc)
 {
     if (isRoundRobin(sc)) {
@@ -404,16 +413,11 @@ void refill_unblock_check(sched_context_t *sc)
         REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + getKernelWcetTicks();
 
         /* merge available replenishments */
-        while (refill_size(sc) > 1) {
+        while (refill_unblock_check_mergable(sc)) {
             ticks_t amount = REFILL_HEAD(sc).rAmount;
-            ticks_t tail = REFILL_HEAD(sc).rTime + amount;
-            if (REFILL_INDEX(sc, refill_next(sc, sc->scRefillHead)).rTime <= tail) {
-                refill_pop_head(sc);
-                REFILL_HEAD(sc).rAmount += amount;
-                REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + getKernelWcetTicks();
-            } else {
-                break;
-            }
+            refill_pop_head(sc);
+            REFILL_HEAD(sc).rAmount += amount;
+            REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + getKernelWcetTicks();
         }
 
         assert(refill_ready(sc));
