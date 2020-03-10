@@ -145,6 +145,15 @@ void sendSignal(notification_t *ntfnPtr, word_t badge)
             notification_ptr_set_state(ntfnPtr, NtfnState_Idle);
         }
 
+#ifdef CONFIG_KERNEL_MCS
+        if (dest->tcbSchedContext != NULL) {
+            assert(dest->tcbSchedContext != NODE_STATE(ksCurSC));
+            // Target is now 'active' so we move all refills to begin
+            // after being blocked
+            refill_unblock_check(dest->tcbSchedContext);
+        }
+#endif
+
         setThreadState(dest, ThreadState_Running);
         setRegister(dest, badgeRegister, badge);
         MCS_DO_IF_SC(dest, ntfnPtr, {

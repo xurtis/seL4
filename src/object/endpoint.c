@@ -105,6 +105,11 @@ void sendIPC(bool_t blocking, bool_t do_call, word_t badge,
         assert(dest->tcbSchedContext == NULL || refill_sufficient(dest->tcbSchedContext, 0));
         assert(dest->tcbSchedContext == NULL || refill_ready(dest->tcbSchedContext));
         setThreadState(dest, ThreadState_Running);
+        if (dest->tcbSchedContext != NULL && dest->tcbSchedContext != NODE_STATE(ksCurSC)) {
+            // Target is now 'active' so we move all refills to begin
+            // after being blocked
+            refill_unblock_check(dest->tcbSchedContext);
+        }
         possibleSwitchTo(dest);
 #else
         bool_t replyCanGrant = thread_state_ptr_get_blockingIPCCanGrant(&dest->tcbState);;
@@ -225,6 +230,13 @@ void receiveIPC(tcb_t *thread, cap_t cap, bool_t isBlocking)
             do_call = thread_state_ptr_get_blockingIPCIsCall(&sender->tcbState);
 
 #ifdef CONFIG_KERNEL_MCS
+            if (sender->tcbSchedContext != NULL) {
+                assert(sender->tcbSchedContext != NODE_STATE(ksCurSC));
+                // Target is now 'active' so we move all refills to begin
+                // after being blocked
+                refill_unblock_check(dest->tcbSchedContext);
+            }
+
             if (do_call ||
                 seL4_Fault_get_seL4_FaultType(sender->tcbFault) != seL4_Fault_NullFault) {
                 if ((canGrant || canGrantReply) && replyPtr != NULL) {
