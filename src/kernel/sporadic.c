@@ -300,7 +300,6 @@ void refill_budget_check_round_robin(ticks_t usage)
 
     if (REFILL_HEAD(sc).rAmount >= usage + MIN_BUDGET) {
         /* The amount left in the head must be at least MIN_BUDGET. */
-        REFILL_HEAD(sc).rTime = NODE_STATE(ksCurTime);
         REFILL_HEAD(sc).rAmount -= usage;
         /* Consume only a portion of the head refill */
         if (sc->scRefillCount == 1) {
@@ -312,13 +311,12 @@ void refill_budget_check_round_robin(ticks_t usage)
             assert(refill_ordered_disjoint(sc));
         } else {
             assert(sc->scRefillCount == 2);
-            REFILL_TAIL(sc).rTime = REFILL_HEAD(sc).rTime + REFILL_HEAD(sc).rAmount;
+            REFILL_TAIL(sc).rTime -= usage;
             REFILL_TAIL(sc).rAmount += usage;
         }
     } else {
         /* Reset to a single refill */
         sc->scRefillCount = 1;
-        REFILL_HEAD(sc).rTime = NODE_STATE(ksCurTime);
         REFILL_HEAD(sc).rAmount = sc->scBudget;
     }
 
@@ -396,18 +394,9 @@ static bool_t refill_unblock_check_mergable(sched_context_t *sc)
 
 void refill_unblock_check(sched_context_t *sc)
 {
-    if (isRoundRobin(sc)) {
-        REFILL_HEAD(sc).rTime = NODE_STATE(ksCurTime) + getKernelWcetTicks();
-        if (sc->scRefillCount > 1) {
-            REFILL_TAIL(sc).rTime = REFILL_HEAD(sc).rTime + REFILL_HEAD(sc).rAmount;
-        }
-        REFILL_SANITY_CHECK(sc, sc->scBudget);
-        return;
-    }
-
     /* advance earliest activation time to now */
     REFILL_SANITY_START(sc);
-    if (refill_ready(sc)) {
+    if (!isRoundRobin(sc) && refill_ready(sc)) {
         NODE_STATE(ksReprogram) = true;
 
         REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + getKernelWcetTicks();
