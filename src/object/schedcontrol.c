@@ -42,6 +42,15 @@ static exception_t invokeSchedControl_Configure(sched_context_t *target, word_t 
         }
     }
 
+    /* Round-robin SCs are represented as having a period of 0 */
+    if (budget == period) {
+        period = 0;
+        /* As round robin threads will always be able to run they will
+         * never have fragmented refills so only need to support a
+         * single split. */
+        max_refills = MIN_REFILLS;
+    }
+
     if (SMP_COND_STATEMENT(core == target->scCore &&) target->scRefillMax > 0 && target->scTcb
         && isRunnable(target->scTcb)) {
         /* the scheduling context is active - it can be used, so

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
+#include <util.h>
 #include <types.h>
 #include <api/failures.h>
 #include <object/structures.h>
@@ -212,7 +213,7 @@ void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t
     /* full budget available */
     REFILL_HEAD(sc).rAmount = budget;
     /* budget can be used from now */
-    if (period == budget) {
+    if (period == 0) {
         REFILL_HEAD(sc).rTime = 0;
     } else {
         REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, core);
@@ -272,7 +273,7 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     /* update budget */
     sc->scBudget = new_budget;
 
-    if (new_period == new_budget) {
+    if (new_period == 0) {
         REFILL_HEAD(sc).rTime = 0;
     } else if (refill_ready(sc)) {
         REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore);
@@ -284,8 +285,9 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     } else {
         /* otherwise schedule the rest for the next period */
         ticks_t unused = new_budget - REFILL_HEAD(sc).rAmount;
+        ticks_t true_period = MAX(new_period, new_budget);
         refill_t new = { .rAmount = unused,
-                         .rTime = REFILL_HEAD(sc).rTime + new_period - unused,
+                         .rTime = REFILL_HEAD(sc).rTime + true_period - unused,
                        };
         schedule_used(sc, new);
     }
@@ -304,6 +306,13 @@ void refill_budget_check_round_robin(ticks_t usage)
         usage = MIN_BUDGET;
     }
 
+    /* If the following check is false then it has already been
+     * determined that this thread will be placed at the back of its
+     * ready queue by the time the kernel returns.
+     *
+     * Whenever a best effort thread is moved to the back of its ready
+     * queue it should have a single refill with its entire budget.
+     */
     if (REFILL_HEAD(sc).rAmount >= usage + MIN_BUDGET) {
         /* The amount left in the head must be at least MIN_BUDGET. */
         REFILL_HEAD(sc).rAmount -= usage;
@@ -321,10 +330,10 @@ void refill_budget_check_round_robin(ticks_t usage)
             REFILL_TAIL(sc).rTime -= usage;
             REFILL_TAIL(sc).rAmount += usage;
         }
-    } else {
+    } else if (sc->scRefillCount > 1) {
         /* Reset to a single refill */
+        REFILL_HEAD(sc).rAmount += REFILL_TAIL(sc).rAmount;
         sc->scRefillCount = 1;
-        REFILL_HEAD(sc).rAmount = sc->scBudget;
     }
 
     assert(REFILL_HEAD(sc).rTime == 0);

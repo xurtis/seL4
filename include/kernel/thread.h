@@ -112,7 +112,7 @@ static inline bool_t PURE isStopped(const tcb_t *thread)
 #ifdef CONFIG_KERNEL_MCS
 static inline bool_t PURE isRoundRobin(sched_context_t *sc)
 {
-    return sc->scPeriod == sc->scBudget;
+    return sc->scPeriod == 0;
 }
 
 static inline bool_t isCurDomainExpired(void)
