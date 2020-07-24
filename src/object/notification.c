@@ -57,6 +57,7 @@ static inline void maybeDonateSchedContext(tcb_t *tcb, notification_t *ntfnPtr)
         }
     }
 }
+
 #endif
 
 #ifdef CONFIG_KERNEL_MCS
@@ -175,6 +176,9 @@ void receiveSignal(tcb_t *thread, cap_t cap, bool_t isBlocking)
                                         ThreadState_BlockedOnNotification);
             thread_state_ptr_set_blockingObject(&thread->tcbState,
                                                 NTFN_REF(ntfnPtr));
+#ifdef CONFIG_KERNEL_MCS
+            maybeReturnSchedContext(ntfnPtr, thread);
+#endif
             scheduleTCB(thread);
 
             /* Enqueue TCB */
