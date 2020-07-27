@@ -583,7 +583,9 @@ void chargeBudget(ticks_t consumed, bool_t canTimeoutFault, word_t core, bool_t 
 {
 
     if (isRoundRobin(NODE_STATE_ON_CORE(ksCurSC, core))) {
-        refill_budget_check_round_robin(consumed);
+        assert(refill_size(NODE_STATE_ON_CORE(ksCurSC, core)) == MIN_REFILLS);
+        REFILL_HEAD(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount += REFILL_TAIL(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount;
+        REFILL_TAIL(NODE_STATE_ON_CORE(ksCurSC, core)).rAmount = 0;
     } else {
         refill_budget_check(consumed);
     }

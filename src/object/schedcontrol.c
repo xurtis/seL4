@@ -42,12 +42,12 @@ static exception_t invokeSchedControl_Configure(sched_context_t *target, word_t 
         }
     }
 
-    /* Round-robin SCs are represented as having a period of 0 */
     if (budget == period) {
+        /* this is a cool hack: for round robin, we set the
+         * period to 0, which means that the budget will always be ready to be refilled
+         * and avoids some special casing.
+         */
         period = 0;
-        /* As round robin threads will always be able to run they will
-         * never have fragmented refills so only need to support a
-         * single split. */
         max_refills = MIN_REFILLS;
     }
 

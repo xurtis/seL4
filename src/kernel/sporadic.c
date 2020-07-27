@@ -132,11 +132,6 @@ static UNUSED void sched_invariants(sched_context_t *sc)
     assert(refill_at_least_min_budget(sc));
     assert(refill_all_within_period(sc));
     assert(refill_sum_to_budget(sc));
-    if (isRoundRobin(sc)) {
-        assert(sc->scRefillCount == 2 || (sc->scRefillCount == 1 && REFILL_HEAD(sc).rAmount == sc->scBudget));
-        assert(refill_ready(sc));
-        assert(refill_sufficient(sc, 0));
-    }
 }
 
 #define REFILL_SANITY_START(sc) ticks_t _sum = refill_sum(sc); sched_invariants(sc);
@@ -198,6 +193,19 @@ static inline void refill_add_tail(sched_context_t *sc, refill_t refill)
     REFILL_TAIL(sc) = refill;
 }
 
+static inline void maybe_add_empty_tail(sched_context_t *sc)
+{
+    if (isRoundRobin(sc)) {
+        /* add an empty refill - we track the used up time here */
+        refill_t empty_tail = {
+            .rTime = REFILL_HEAD(sc).rTime,
+            .rAmount = 0,
+        };
+        refill_add_tail(sc, empty_tail);
+        assert(refill_size(sc) == MIN_REFILLS);
+    }
+}
+
 #ifdef ENABLE_SMP_SUPPORT
 void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t period, word_t core)
 #else
@@ -213,11 +221,8 @@ void refill_new(sched_context_t *sc, word_t max_refills, ticks_t budget, ticks_t
     /* full budget available */
     REFILL_HEAD(sc).rAmount = budget;
     /* budget can be used from now */
-    if (period == 0) {
-        REFILL_HEAD(sc).rTime = 0;
-    } else {
-        REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, core);
-    }
+    REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, core);
+    maybe_add_empty_tail(sc);
     REFILL_SANITY_CHECK(sc, budget);
 }
 
@@ -273,72 +278,24 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     /* update budget */
     sc->scBudget = new_budget;
 
-    if (new_period == 0) {
-        REFILL_HEAD(sc).rTime = 0;
-    } else if (refill_ready(sc)) {
+    if (refill_ready(sc)) {
         REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore);
     }
 
     if (REFILL_HEAD(sc).rAmount >= new_budget) {
         /* if the heads budget exceeds the new budget just trim it */
         REFILL_HEAD(sc).rAmount = new_budget;
+        maybe_add_empty_tail(sc);
     } else {
         /* otherwise schedule the rest for the next period */
         ticks_t unused = new_budget - REFILL_HEAD(sc).rAmount;
-        ticks_t true_period = MAX(new_period, new_budget);
         refill_t new = { .rAmount = unused,
-                         .rTime = REFILL_HEAD(sc).rTime + true_period - unused,
+                         .rTime = REFILL_HEAD(sc).rTime + new_period - unused,
                        };
         schedule_used(sc, new);
     }
 
     REFILL_SANITY_CHECK(sc, new_budget);
-}
-
-void refill_budget_check_round_robin(ticks_t usage)
-{
-    sched_context_t *sc = NODE_STATE(ksCurSC);
-    assert(isRoundRobin(sc));
-    REFILL_SANITY_START(sc);
-
-    if (usage < MIN_BUDGET && sc->scRefillCount == 1) {
-        /* If a new refill is created it will be at least MIN_BUDGET. */
-        usage = MIN_BUDGET;
-    }
-
-    /* If the following check is false then it has already been
-     * determined that this thread will be placed at the back of its
-     * ready queue by the time the kernel returns.
-     *
-     * Whenever a best effort thread is moved to the back of its ready
-     * queue it should have a single refill with its entire budget.
-     */
-    if (REFILL_HEAD(sc).rAmount >= usage + MIN_BUDGET) {
-        /* The amount left in the head must be at least MIN_BUDGET. */
-        REFILL_HEAD(sc).rAmount -= usage;
-        /* Consume only a portion of the head refill */
-        if (sc->scRefillCount == 1) {
-            assert(REFILL_HEAD(sc).rTime == 0);
-            refill_t new = {
-                .rTime = REFILL_HEAD(sc).rAmount,
-                .rAmount = usage,
-            };
-            refill_add_tail(sc, new);
-            assert(refill_ordered_disjoint(sc));
-        } else {
-            assert(sc->scRefillCount == 2);
-            REFILL_TAIL(sc).rTime -= usage;
-            REFILL_TAIL(sc).rAmount += usage;
-        }
-    } else if (sc->scRefillCount > 1) {
-        /* Reset to a single refill */
-        REFILL_HEAD(sc).rAmount += REFILL_TAIL(sc).rAmount;
-        sc->scRefillCount = 1;
-    }
-
-    assert(REFILL_HEAD(sc).rTime == 0);
-    REFILL_SANITY_END(sc);
-    return;
 }
 
 void refill_budget_check(ticks_t usage)

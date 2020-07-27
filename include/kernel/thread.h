@@ -132,7 +132,11 @@ static inline void commitTime(void)
             assert(refill_ready(NODE_STATE(ksCurSC)));
 
             if (isRoundRobin(NODE_STATE(ksCurSC))) {
-                refill_budget_check_round_robin(NODE_STATE(ksConsumed));
+                /* for round robin threads, there are only two refills: the HEAD, which is what
+                 * we are consuming, and the tail, which is what we have consumed */
+                assert(refill_size(NODE_STATE(ksCurSC)) == MIN_REFILLS);
+                REFILL_HEAD(NODE_STATE(ksCurSC)).rAmount -= NODE_STATE(ksConsumed);
+                REFILL_TAIL(NODE_STATE(ksCurSC)).rAmount += NODE_STATE(ksConsumed);
             } else {
                 refill_budget_check(NODE_STATE(ksConsumed));
             }
