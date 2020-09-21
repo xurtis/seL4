@@ -184,12 +184,13 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
     /* move the head refill to the start of the list - it's ok as we're going to truncate the
      * list to size 1 - and this way we can't be in an invalid list position once new_max_refills
      * is updated */
-    *refill_index(sc, 0) = *refill_head(sc);
+    refill_t head = *refill_head(sc);
     sc->scRefillHead = 0;
     /* truncate refill list to size 1 */
     sc->scRefillTail = sc->scRefillHead;
     /* update max refills */
     sc->scRefillMax = new_max_refills;
+    *refill_index(sc, 0) = head;
     /* update period */
     sc->scPeriod = new_period;
 
