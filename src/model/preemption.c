@@ -33,7 +33,7 @@ exception_t preemptionPoint(void)
 #ifdef CONFIG_KERNEL_MCS
         } else {
             updateTimestamp();
-            if (!checkBudget()) {
+            if (!(NODE_STATE(ksCurSC)->scRefillMax && checkBudget())) {
                 return EXCEPTION_PREEMPTED;
             }
 #endif
