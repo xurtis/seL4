@@ -248,14 +248,7 @@ static inline bool_t checkBudget(void)
 {
     /* currently running thread must have available capacity */
     assert(refill_ready(NODE_STATE(ksCurSC)));
-
-    ticks_t capacity = refill_capacity(NODE_STATE(ksCurSC), NODE_STATE(ksConsumed));
-    /* if the budget isn't enough, the timeslice for this SC is over. For
-     * round robin threads this is sufficient, however for periodic threads
-     * we also need to check there is space to schedule the replenishment - if the refill
-     * is full then the timeslice is also over as the rest of the budget is forfeit. */
-    if (likely(capacity >= MIN_BUDGET && (isRoundRobin(NODE_STATE(ksCurSC)) ||
-                                          !refill_full(NODE_STATE(ksCurSC))))) {
+    if (likely(refill_sufficient(NODE_STATE(ksCurSC), NODE_STATE(ksConsumed)))) {
         if (unlikely(isCurDomainExpired())) {
             NODE_STATE(ksReprogram) = true;
             rescheduleRequired();
