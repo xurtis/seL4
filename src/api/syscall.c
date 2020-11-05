@@ -642,8 +642,8 @@ exception_t handleSyscall(syscall_t syscall)
             ret = handleInvocation(false, true, false, false, getRegister(NODE_STATE(ksCurThread), capRegister));
             if (unlikely(ret != EXCEPTION_NONE)) {
                 irq = getActiveIRQ();
+                mcsIRQ(irq);
                 if (IRQT_TO_IRQ(irq) != IRQT_TO_IRQ(irqInvalid)) {
-                    mcsIRQ(irq);
                     handleInterrupt(irq);
                     Arch_finaliseInterrupt();
                 }
@@ -655,8 +655,8 @@ exception_t handleSyscall(syscall_t syscall)
             ret = handleInvocation(false, false, false, false, getRegister(NODE_STATE(ksCurThread), capRegister));
             if (unlikely(ret != EXCEPTION_NONE)) {
                 irq = getActiveIRQ();
+                mcsIRQ(irq);
                 if (IRQT_TO_IRQ(irq) != IRQT_TO_IRQ(irqInvalid)) {
-                    mcsIRQ(irq);
                     handleInterrupt(irq);
                     Arch_finaliseInterrupt();
                 }
@@ -667,8 +667,8 @@ exception_t handleSyscall(syscall_t syscall)
             ret = handleInvocation(true, true, true, false, getRegister(NODE_STATE(ksCurThread), capRegister));
             if (unlikely(ret != EXCEPTION_NONE)) {
                 irq = getActiveIRQ();
+                mcsIRQ(irq);
                 if (IRQT_TO_IRQ(irq) != IRQT_TO_IRQ(irqInvalid)) {
-                    mcsIRQ(irq);
                     handleInterrupt(irq);
                     Arch_finaliseInterrupt();
                 }
@@ -710,8 +710,8 @@ exception_t handleSyscall(syscall_t syscall)
             ret = handleInvocation(false, false, true, true, dest);
             if (unlikely(ret != EXCEPTION_NONE)) {
                 irq = getActiveIRQ();
+                mcsIRQ(irq);
                 if (IRQT_TO_IRQ(irq) != IRQT_TO_IRQ(irqInvalid)) {
-                    mcsIRQ(irq);
                     handleInterrupt(irq);
                     Arch_finaliseInterrupt();
                 }
@@ -725,8 +725,8 @@ exception_t handleSyscall(syscall_t syscall)
             ret = handleInvocation(false, false, true, true, getRegister(NODE_STATE(ksCurThread), replyRegister));
             if (unlikely(ret != EXCEPTION_NONE)) {
                 irq = getActiveIRQ();
+                mcsIRQ(irq);
                 if (IRQT_TO_IRQ(irq) != IRQT_TO_IRQ(irqInvalid)) {
-                    mcsIRQ(irq);
                     handleInterrupt(irq);
                     Arch_finaliseInterrupt();
                 }
