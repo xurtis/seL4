@@ -15,6 +15,7 @@
 #include <object/cnode.h>
 #include <object/endpoint.h>
 #include <object/tcb.h>
+#include <log.h>
 
 static inline void ep_ptr_set_queue(endpoint_t *epptr, tcb_queue_t queue)
 {
@@ -57,6 +58,8 @@ void sendIPC(bool_t blocking, bool_t do_call, word_t badge,
             queue = tcbEPAppend(thread, queue);
             endpoint_ptr_set_state(epptr, EPState_Send);
             ep_ptr_set_queue(epptr, queue);
+
+            debugLog(Block, epptr);
         }
         break;
 
@@ -92,6 +95,7 @@ void sendIPC(bool_t blocking, bool_t do_call, word_t badge,
             seL4_Fault_ptr_get_seL4_FaultType(&thread->tcbFault) != seL4_Fault_NullFault) {
             if (reply != NULL && (canGrant || canGrantReply)) {
                 reply_push(thread, dest, reply, canDonate);
+                debugLog(Block, reply);
             } else {
                 setThreadState(thread, ThreadState_Inactive);
             }
@@ -116,6 +120,7 @@ void sendIPC(bool_t blocking, bool_t do_call, word_t badge,
         if (do_call) {
             if (canGrant || canGrantReply) {
                 setupCallerCap(thread, dest, replyCanGrant);
+                debugLog(Block, dest);
             } else {
                 setThreadState(thread, ThreadState_Inactive);
             }

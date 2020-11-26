@@ -15,6 +15,7 @@
 #include <machine/timer.h>
 #include <mode/machine.h>
 #endif
+#include <log.h>
 
 static inline CONST word_t ready_queues_index(word_t dom, word_t prio)
 {
@@ -235,6 +236,7 @@ static inline void updateTimestamp(void)
     time_t prev = NODE_STATE(ksCurTime);
     NODE_STATE(ksCurTime) = getCurrentTime();
     NODE_STATE(ksConsumed) += (NODE_STATE(ksCurTime) - prev);
+    debugLog(Timestamp);
 }
 
 /* Check if the current thread/domain budget has expired.
