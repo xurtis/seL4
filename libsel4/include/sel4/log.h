@@ -73,6 +73,12 @@ enum {
     seL4_Log_TypeId(None),
     seL4_Log_TypeId(Entry),
     seL4_Log_TypeId(Exit),
+    seL4_Log_TypeId(Block),
+    seL4_Log_TypeId(Resume),
+    seL4_Log_TypeId(Postpone),
+    seL4_Log_TypeId(SwitchThread),
+    seL4_Log_TypeId(SwitchSchedContext),
+    seL4_Log_TypeId(Timestamp),
     seL4_NumLogTypeIds,
 };
 
@@ -97,6 +103,63 @@ typedef struct {
     seL4_Uint64 timestamp;
 } seL4_Log_Type(Exit);
 
+/* Manner in which a thread can block */
+typedef enum {
+    seL4_Log_Block_EndpointRecieve,
+    seL4_Log_Block_EndpointSend,
+    seL4_Log_Block_Reply,
+    seL4_Log_Block_NotificationRecieve,
+    seL4_Log_NumValidBlockEvents,
+} seL4_Log_BlockEvent;
+
+/* Block on a kernel object */
+typedef struct {
+    /* Header data indicates nature of block */
+    seL4_LogEvent header;
+    /* Object on which the thread blocked (physical address) */
+    seL4_Word object;
+} seL4_Log_Type(Block);
+
+/* Resume a thread (including unblock) */
+typedef struct {
+    seL4_LogEvent header;
+    /* Thread that was unblocked (physical address) */
+    seL4_Word thread;
+} seL4_Log_Type(Resume);
+
+/* Postpone the current SC */
+typedef struct {
+    seL4_LogEvent header;
+    /* Time to which the thread was postponed */
+    seL4_Uint64 release;
+} seL4_Log_Type(Postpone);
+
+/* Switch to running a thread */
+typedef struct {
+    /* Header data contains core ID */
+    seL4_LogEvent header;
+    /* Thread that is now running (physical address) */
+    seL4_Word thread;
+} seL4_Log_Type(SwitchThread);
+
+/* Switch to running a scheduling context */
+typedef struct {
+    /* Header data contains core ID */
+    seL4_LogEvent header;
+    /* scheduling context that is now running (physical address) */
+    seL4_Word sched_context;
+} seL4_Log_Type(SwitchSchedContext);
+
+/* Switch to running a scheduling context */
+typedef struct {
+    /* Header data contains core ID */
+    seL4_LogEvent header;
+    /* Kernel time in microseconds */
+    seL4_Uint64 microseconds;
+    /* Kernel time in cycles */
+    seL4_Uint64 cycles;
+} seL4_Log_Type(Timestamp);
+
 /*
  * Reading information from log events
  * ===================================
@@ -112,6 +175,12 @@ static inline seL4_Word seL4_LogType_length(seL4_Word type)
         [seL4_Log_TypeId(None)] = seL4_Log_Length(None),
         [seL4_Log_TypeId(Entry)] = seL4_Log_Length(Entry),
         [seL4_Log_TypeId(Exit)] = seL4_Log_Length(Exit),
+        [seL4_Log_TypeId(Block)] = seL4_Log_Length(Block),
+        [seL4_Log_TypeId(Resume)] = seL4_Log_Length(Resume),
+        [seL4_Log_TypeId(Postpone)] = seL4_Log_Length(Postpone),
+        [seL4_Log_TypeId(SwitchThread)] = seL4_Log_Length(SwitchThread),
+        [seL4_Log_TypeId(SwitchSchedContext)] = seL4_Log_Length(SwitchSchedContext),
+        [seL4_Log_TypeId(Timestamp)] = seL4_Log_Length(Timestamp),
     };
 
     if (type >= seL4_NumLogTypeIds) {

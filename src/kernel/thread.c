@@ -20,6 +20,7 @@
 #include <arch/kernel/thread.h>
 #include <machine/registerset.h>
 #include <linker.h>
+#include <log.h>
 
 static seL4_MessageInfo_t
 transferCaps(seL4_MessageInfo_t info, extra_caps_t caps,
@@ -314,12 +315,14 @@ static void nextDomain(void)
 #ifdef CONFIG_KERNEL_MCS
 static void switchSchedContext(void)
 {
+    int changed = false;
     if (unlikely(NODE_STATE(ksCurSC) != NODE_STATE(ksCurThread)->tcbSchedContext) && NODE_STATE(ksCurSC)->scRefillMax) {
         NODE_STATE(ksReprogram) = true;
         refill_unblock_check(NODE_STATE(ksCurThread->tcbSchedContext));
 
         assert(refill_ready(NODE_STATE(ksCurThread->tcbSchedContext)));
         assert(refill_sufficient(NODE_STATE(ksCurThread->tcbSchedContext), 0));
+        changed = true;
     }
 
     if (NODE_STATE(ksReprogram)) {
@@ -329,6 +332,10 @@ static void switchSchedContext(void)
     }
 
     NODE_STATE(ksCurSC) = NODE_STATE(ksCurThread)->tcbSchedContext;
+
+    if (changed) {
+        debugLog(SwitchSchedContext);
+    }
 }
 #endif
 
@@ -444,6 +451,8 @@ void switchToThread(tcb_t *thread)
     Arch_switchToThread(thread);
     tcbSchedDequeue(thread);
     NODE_STATE(ksCurThread) = thread;
+
+    debugLog(SwitchThread);
 }
 
 void switchToIdleThread(void)
@@ -453,6 +462,8 @@ void switchToIdleThread(void)
 #endif
     Arch_switchToIdleThread();
     NODE_STATE(ksCurThread) = NODE_STATE(ksIdleThread);
+
+    debugLog(SwitchThread);
 }
 
 void setDomain(tcb_t *tptr, dom_t dom)
@@ -534,10 +545,11 @@ void possibleSwitchTo(tcb_t *target)
         } else {
             NODE_STATE(ksSchedulerAction) = target;
         }
+
+        debugLog(Resume, target);
 #ifdef CONFIG_KERNEL_MCS
     }
 #endif
-
 }
 
 void setThreadState(tcb_t *tptr, _thread_state_t ts)
@@ -614,6 +626,7 @@ void endTimeslice(bool_t can_timeout_fault)
     } else {
         /* postpone until ready */
         postpone(NODE_STATE(ksCurSC));
+        debugLog(Postpone);
     }
 }
 #else

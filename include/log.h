@@ -14,6 +14,8 @@
 #include <arch/benchmark.h>
 #include <model/statedata.h>
 #include <arch/model/smp.h>
+#include <object/structures.h>
+#include <kernel/sporadic.h>
 
 /* The global logbuffer reference used by the kernel */
 extern seL4_LogBuffer ksLogBuffer;
@@ -128,6 +130,91 @@ static inline void debugLog_Function(Exit)(void)
     if (event != NULL) {
         event->header.data = CURRENT_CPU_INDEX();
         event->timestamp = timestamp();
+    }
+#endif
+}
+
+/* Log the current thread blocking */
+static inline void debugLog_Function(Block)(void *object) {
+    word_t thread_state = thread_state_get_tsType(NODE_STATE(ksCurThread)->tcbState);
+    seL4_Log_BlockEvent block = seL4_Log_NumValidBlockEvents + thread_state;
+
+    switch (thread_state) {
+    case ThreadState_BlockedOnReceive:
+        block = seL4_Log_Block_EndpointRecieve;
+        break;
+    case ThreadState_BlockedOnSend:
+        block = seL4_Log_Block_EndpointSend;
+        break;
+    case ThreadState_BlockedOnReply:
+        block = seL4_Log_Block_Reply;
+        break;
+    case ThreadState_BlockedOnNotification:
+        block = seL4_Log_Block_NotificationRecieve;
+        break;
+    }
+
+    seL4_Log_Type(Block) *event = logBuffer_reserve(Block);
+    if (event != NULL) {
+        event->header.data = block;
+        event->object = addrFromPPtr(object);
+    }
+}
+
+/* Log a thread being resumed */
+static inline void debugLog_Function(Resume)(tcb_t *thread) {
+    seL4_Log_Type(Resume) *event = logBuffer_reserve(Resume);
+    if (event != NULL) {
+        /* The TCB is halfway through the object allocation, and we want
+         * the address of the TCB allocation */
+        event->thread = addrFromPPtr(thread) & ~MASK(seL4_TCBBits);
+    }
+}
+
+/* Log current SC being postponed */
+static inline void debugLog_Function(Postpone)(void) {
+#ifdef CONFIG_KERNEL_MCS
+    seL4_Log_Type(Postpone) *event = logBuffer_reserve(Postpone);
+    if (event != NULL) {
+        event->release = ticksToUs(refill_head(NODE_STATE(ksCurSC))->rTime);
+    }
+#endif
+}
+
+/* Log switching thread on a core */
+static inline void debugLog_Function(SwitchThread)(void) {
+    seL4_Log_Type(SwitchThread) *event = logBuffer_reserve(SwitchThread);
+    if (event != NULL) {
+        event->header.data = CURRENT_CPU_INDEX();
+        /* The TCB is halfway through the object allocation, and we want
+         * the address of the TCB allocation */
+        event->thread = addrFromPPtr(NODE_STATE(ksCurThread)) & ~MASK(seL4_TCBBits);
+    }
+}
+
+/* Log switching scheduling context on a core */
+static inline void debugLog_Function(SwitchSchedContext)(void) {
+#ifdef CONFIG_KERNEL_MCS
+    seL4_Log_Type(SwitchSchedContext) *event = logBuffer_reserve(SwitchSchedContext);
+    if (event != NULL) {
+        event->header.data = CURRENT_CPU_INDEX();
+        /* The TCB is halfway through the object allocation, and we want
+         * the address of the TCB allocation */
+        event->sched_context = addrFromPPtr(NODE_STATE(ksCurSC));
+    }
+#endif
+}
+
+/* Log time changing on a core */
+static inline void debugLog_Function(Timestamp)(void) {
+#ifdef CONFIG_KERNEL_MCS
+    seL4_Log_Type(Timestamp) *event = logBuffer_reserve(Timestamp);
+    if (event != NULL) {
+        event->header.data = CURRENT_CPU_INDEX();
+        event->microseconds = ticksToUs(NODE_STATE(ksCurTime));
+#ifdef CONFIG_KERNEL_DEBUG_LOG_ENTRIES
+        event->cycles = timestamp();
+#endif
     }
 #endif
 }
