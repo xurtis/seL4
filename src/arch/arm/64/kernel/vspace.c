@@ -2575,10 +2575,17 @@ exception_t benchmark_arch_map_logBuffer(word_t frame_cptr)
                              1,                         /* access flag */
                              SMP_TERNARY(SMP_SHARE, 0), /* Inner-shareable if SMP enabled, otherwise unshared */
                              0,                         /* VMKernelOnly */
-                             NORMAL);
+                             NORMAL_NC);
 
     cleanByVA_PoU((vptr_t)armKSGlobalLogPDE, pptr_to_paddr(armKSGlobalLogPDE));
     invalidateTranslationSingle(KS_LOG_PPTR);
+
+    // Invalidate the kernel-window mappings (assumes non-device)
+    invalidateCacheRange_RAM(
+        (word_t)paddr_to_pptr(ksUserLogBuffer),
+        ((word_t)paddr_to_pptr(ksUserLogBuffer)) + BIT(seL4_LargePageBits) - 1,
+        ksUserLogBuffer
+    );
 
 #ifdef CONFIG_KERNEL_DEBUG_LOG_BUFFER
     logBuffer_init((seL4_Word *)KS_LOG_PPTR, BIT(pageBitsForSize(frameSize) - seL4_WordSizeBits));
