@@ -269,7 +269,13 @@ static inline seL4_LogEvent *seL4_LogBuffer_next(seL4_LogBuffer *buffer)
         return seL4_Null;
     } else {
         seL4_LogEvent *event = seL4_LogBuffer_event(*buffer, buffer->index);
-        buffer->index += seL4_LogEvent_length(event);
+
+        seL4_Word length = seL4_LogEvent_length(event);
+        if (length == 0) {
+            return seL4_Null;
+        }
+
+        buffer->index += length;
         return event;
     }
 }

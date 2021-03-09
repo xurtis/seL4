@@ -15,7 +15,9 @@
 #include <model/statedata.h>
 #include <arch/model/smp.h>
 #include <object/structures.h>
+#ifdef CONFIG_KERNEL_IS_MCS
 #include <kernel/sporadic.h>
+#endif
 
 /* The global logbuffer reference used by the kernel */
 extern seL4_LogBuffer ksLogBuffer;
@@ -73,8 +75,10 @@ static inline seL4_LogEvent *logBuffer_reserveGeneric(seL4_Word type)
 
         return event;
     } else {
-        /* Insufficient space in log buffer so finalise */
-        logBuffer_finalize();
+        if (ksLogEnabled) {
+            /* Insufficient space in log buffer so finalise */
+            logBuffer_finalize();
+        }
         return NULL;
     }
 }
