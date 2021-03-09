@@ -56,6 +56,9 @@ typedef struct {
 /* Get the length of an event structure as a number of words */
 #define seL4_Log_Length(event) (((sizeof(seL4_Log_Type(event)) - 1ul) >> seL4_WordSizeBits) + 1ul)
 
+/* Maximum length of name that will be logged into the log buffer */
+#define SEL4_LOG_NAME_LENGTH 64
+
 /*
  * Definition of log events
  * ========================
@@ -79,6 +82,10 @@ enum {
     seL4_Log_TypeId(SwitchThread),
     seL4_Log_TypeId(SwitchSchedContext),
     seL4_Log_TypeId(Timestamp),
+    seL4_Log_TypeId(Irq),
+    seL4_Log_TypeId(Syscall),
+    seL4_Log_TypeId(Invocation),
+    seL4_Log_TypeId(ThreadName),
     seL4_NumLogTypeIds,
 };
 
@@ -160,6 +167,40 @@ typedef struct {
     seL4_Uint64 cycles;
 } seL4_Log_Type(Timestamp);
 
+/* IRQ received by kernel */
+typedef struct {
+    /* Header data contains core ID */
+    seL4_LogEvent header;
+    /* IRQ number */
+    seL4_Word irq;
+} seL4_Log_Type(Irq);
+
+/* Syscall into kernel */
+typedef struct {
+    /* Header data contains negated syscall ID */
+    seL4_LogEvent header;
+    /* Syscall ID */
+    seL4_Word syscall;
+} seL4_Log_Type(Syscall);
+
+/* Syscall into kernel */
+typedef struct {
+    /* Header data contains invocation label */
+    seL4_LogEvent header;
+    /* Capability invoked */
+    seL4_Word cptr;
+} seL4_Log_Type(Invocation);
+
+/* Syscall into kernel */
+typedef struct {
+    /* Header data length of name in bytes */
+    seL4_LogEvent header;
+    /* Thread that is now running (physical address) */
+    seL4_Word thread;
+    /* Thread name */
+    char name[SEL4_LOG_NAME_LENGTH];
+} seL4_Log_Type(ThreadName);
+
 /*
  * Reading information from log events
  * ===================================
@@ -181,6 +222,10 @@ static inline seL4_Word seL4_LogType_length(seL4_Word type)
         [seL4_Log_TypeId(SwitchThread)] = seL4_Log_Length(SwitchThread),
         [seL4_Log_TypeId(SwitchSchedContext)] = seL4_Log_Length(SwitchSchedContext),
         [seL4_Log_TypeId(Timestamp)] = seL4_Log_Length(Timestamp),
+        [seL4_Log_TypeId(Irq)] = seL4_Log_Length(Irq),
+        [seL4_Log_TypeId(Syscall)] = seL4_Log_Length(Syscall),
+        [seL4_Log_TypeId(Invocation)] = seL4_Log_Length(Invocation),
+        [seL4_Log_TypeId(ThreadName)] = seL4_Log_Length(ThreadName),
     };
 
     if (type >= seL4_NumLogTypeIds) {

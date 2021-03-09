@@ -9,6 +9,7 @@
 #ifdef CONFIG_KERNEL_MCS
 #include <object/reply.h>
 #endif
+#include <log.h>
 
 #ifdef CONFIG_BENCHMARK_TRACK_KERNEL_ENTRIES
 #include <benchmark/benchmark_track.h>
@@ -214,7 +215,9 @@ void NORETURN fastpath_call(word_t cptr, word_t msgInfo)
     /* Dest thread is set Running, but not queued. */
     thread_state_ptr_set_tsType_np(&dest->tcbState,
                                    ThreadState_Running);
+    debugLog(Resume, dest);
     switchToThread_fp(dest, cap_pd, stored_hw_asid);
+    debugLog(SwitchThread);
 
     msgInfo = wordFromMessageInfo(seL4_MessageInfo_set_capsUnwrapped(info, 0));
 
@@ -486,7 +489,9 @@ void NORETURN fastpath_reply_recv(word_t cptr, word_t msgInfo)
     /* Dest thread is set Running, but not queued. */
     thread_state_ptr_set_tsType_np(&caller->tcbState,
                                    ThreadState_Running);
+    debugLog(Resume, caller);
     switchToThread_fp(caller, cap_pd, stored_hw_asid);
+    debugLog(SwitchThread);
 
     msgInfo = wordFromMessageInfo(seL4_MessageInfo_set_capsUnwrapped(info, 0));
 

@@ -394,6 +394,8 @@ static exception_t handleInvocation(bool_t isCall, bool_t isBlocking)
     cptr_t cptr = getRegister(thread, capRegister);
 #endif
 
+    debugLog(Invocation, seL4_MessageInfo_get_label(info), cptr);
+
     /* faulting section */
     lu_ret = lookupCapAndSlot(thread, cptr);
 
@@ -635,6 +637,7 @@ exception_t handleSyscall(syscall_t syscall)
 {
     exception_t ret;
     irq_t irq;
+    debugLog(Syscall, syscall);
     MCS_DO_IF_BUDGET({
         switch (syscall)
         {

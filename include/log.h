@@ -15,6 +15,8 @@
 #include <model/statedata.h>
 #include <arch/model/smp.h>
 #include <object/structures.h>
+#include <machine/interrupt.h>
+#include <string.h>
 #ifdef CONFIG_KERNEL_IS_MCS
 #include <kernel/sporadic.h>
 #endif
@@ -23,12 +25,15 @@
 extern seL4_LogBuffer ksLogBuffer;
 extern bool_t ksLogEnabled;
 
+static inline void debugLog_ThreadNames(void);
+
 /* Reset the log buffer to start logging at the beginning */
 static inline void logBuffer_reset(void)
 {
     if (ksLogBuffer.buffer != NULL) {
         ksLogBuffer.index = 0;
         ksLogEnabled = true;
+        debugLog_ThreadNames();
     }
 }
 
@@ -218,7 +223,66 @@ static inline void debugLog_Function(Timestamp)(void) {
         event->microseconds = ticksToUs(NODE_STATE(ksCurTime));
 #ifdef CONFIG_KERNEL_DEBUG_LOG_ENTRIES
         event->cycles = timestamp();
+#else
+        event->cycles = 0;
 #endif
+    }
+#endif
+}
+
+/* Log IRQ received on a core */
+static inline void debugLog_Function(Irq)(irq_t irq) {
+    seL4_Log_Type(Irq) *event = logBuffer_reserve(Irq);
+    if (event != NULL) {
+        event->header.data = CURRENT_CPU_INDEX();
+        event->irq = IRQT_TO_IDX(irq);
+    }
+}
+
+/* Log syscall received on a core */
+static inline void debugLog_Function(Syscall)(syscall_t syscall) {
+    seL4_Log_Type(Syscall) *event = logBuffer_reserve(Syscall);
+    if (event != NULL) {
+        event->header.data = -((signed long)syscall);
+        event->syscall = syscall;
+    }
+}
+
+/* Log invocation on a core */
+static inline void debugLog_Function(Invocation)(
+    seL4_Word label,
+    seL4_Word cptr
+) {
+    seL4_Log_Type(Invocation) *event = logBuffer_reserve(Invocation);
+    if (event != NULL) {
+        event->header.data = label;
+        event->cptr = cptr;
+    }
+}
+
+/* Log switching thread on a core */
+static inline void debugLog_Function(ThreadName)(tcb_t *thread) {
+#ifdef CONFIG_DEBUG_BUILD
+    debug_tcb_t *debug = TCB_PTR_DEBUG_PTR(thread);
+    seL4_Log_Type(ThreadName) *event = logBuffer_reserve(ThreadName);
+    if (event != NULL) {
+        word_t length = strnlen(debug->tcbName, SEL4_LOG_NAME_LENGTH);
+        event->header.data = length;
+        event->thread = addrFromPPtr(thread) & ~MASK(seL4_TCBBits);
+        strlcpy(event->name, debug->tcbName, SEL4_LOG_NAME_LENGTH);
+    }
+#endif
+}
+
+/* Log all of the current thread names */
+static inline void debugLog_ThreadNames(void) {
+#ifdef CONFIG_DEBUG_BUILD
+    for (int node = 0; node < CONFIG_MAX_NUM_NODES; node += 1) {
+        tcb_t *tcb = NODE_STATE_ON_CORE(ksDebugTCBs, node);
+        while (tcb != NULL) {
+            debugLog(ThreadName, tcb);
+            tcb = TCB_PTR_DEBUG_PTR(tcb)->tcbDebugNext;
+        }
     }
 #endif
 }

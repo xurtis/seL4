@@ -19,6 +19,7 @@
 #include <model/statedata.h>
 #include <machine/timer.h>
 #include <smp/ipi.h>
+#include <log.h>
 
 exception_t decodeIRQControlInvocation(word_t invLabel, word_t length,
                                        cte_t *srcSlot, extra_caps_t excaps,
@@ -183,6 +184,8 @@ void deletedIRQHandler(irq_t irq)
 
 void handleInterrupt(irq_t irq)
 {
+    debugLog(Irq, irq);
+
     if (unlikely(IRQT_TO_IRQ(irq) > maxIRQ)) {
         /* mask, ack and pretend it didn't happen. We assume that because
          * the interrupt controller for the platform returned this IRQ that

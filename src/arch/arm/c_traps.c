@@ -15,6 +15,7 @@
 #include <benchmark/benchmark_track.h>
 #include <benchmark/benchmark_utilisation.h>
 #include <arch/machine.h>
+#include <log.h>
 
 void VISIBLE NORETURN c_handle_undefined_instruction(void)
 {
@@ -149,6 +150,8 @@ void VISIBLE c_handle_fastpath_call(word_t cptr, word_t msgInfo)
     ksKernelEntry.is_fastpath = 1;
 #endif /* DEBUG */
 
+    debugLog(Syscall, SysCall);
+
     fastpath_call(cptr, msgInfo);
     UNREACHABLE();
 }
@@ -167,6 +170,8 @@ void VISIBLE c_handle_fastpath_reply_recv(word_t cptr, word_t msgInfo)
     benchmark_debug_syscall_start(cptr, msgInfo, SysReplyRecv);
     ksKernelEntry.is_fastpath = 1;
 #endif /* DEBUG */
+
+    debugLog(Syscall, SysReplyRecv);
 
 #ifdef CONFIG_KERNEL_MCS
     fastpath_reply_recv(cptr, msgInfo, reply);
